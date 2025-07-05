@@ -6,6 +6,8 @@ import lbc
 import json
 import os
 from azure.storage.blob import BlobServiceClient
+import time
+import random
 
 
 BLOB_CONNECTION_STRING = os.environ["BLOB_CONNECTION_STRING"]
@@ -67,6 +69,9 @@ def send_new_ad_email(ad, recipient_email, connection_string, sender_address):
 
 
 def main(mytimer: func.TimerRequest) -> None:
+    # Add a small random delay (0-15 seconds)
+    delay = random.randint(0, 10)
+    time.sleep(delay)
     if mytimer.past_due:
         logging.info('The timer is past due!')
 
@@ -86,20 +91,31 @@ def main(mytimer: func.TimerRequest) -> None:
         radius=0,
         city="Paris"
     )
-    result = client.search(
-        locations=[location],
-        page=1,
-        limit=5,
-        limit_alu=0,
-        sort=lbc.Sort.NEWEST,
-        ad_type=lbc.AdType.OFFER,
-        category=lbc.Category.IMMOBILIER_LOCATIONS,
-        owner_type=lbc.OwnerType.ALL,
-        search_in_title_only=True,
-        square=(20, 400),
-        price=[900, 1250],
-        furnished=['1']
-    )
+    try:
+        result = client.search(
+            locations=[location],
+            page=1,
+            limit=5,
+            limit_alu=0,
+            sort=lbc.Sort.NEWEST,
+            ad_type=lbc.AdType.OFFER,
+            category=lbc.Category.IMMOBILIER_LOCATIONS,
+            owner_type=lbc.OwnerType.ALL,
+            search_in_title_only=True,
+            square=(20, 400),
+            price=[900, 1250],
+            furnished=['1']
+        )
+    except Exception as e:
+        error_message = f"Erreur lors de l'appel à client.search: {e}"
+        logging.error(error_message)
+        send_new_ad_email(
+            ad=type('ad', (), {'subject': 'Erreur client.search', 'body': error_message, 'price': '', 'url': '', 'images': []})(),
+            recipient_email="cuttittalucio@icloud.com",
+            connection_string=connection_string,
+            sender_address=sender_address
+        )
+        return
 
     seen_ids = load_seen_ids()
     new_ids = set()
